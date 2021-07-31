@@ -1,7 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
+
 
 #ifndef GENERIC_ARR_H
+
+#include <stdio.h>
+#include <stdlib.h>
 
 #define GENERIC_ARR_H
 
@@ -19,17 +21,22 @@ list_##type* list_##type##_pushback(list_##type* ls, type data);                
 list_##type* list_##type##_init(size_t sz);                                                 \
 type* get_##type(list_##type* ls, long idx);                                                \
 void set_##type(list_##type* ls, long idx, type val);                                       \
-type* pop_##type(list_##type* ls, size_t idx);                                              \
+type pop_##type(list_##type* ls, size_t idx);                                               \
 void list_##type##_free(list_##type* ls);                                                   \
+type* get_##type##_slice(list_##type* ls, size_t start_idx, size_t end_idx);                \
+size_t validate_##type##_idx(list_##type* ls, size_t idx);                                  \
+void clear_##type##_bits(list_##type* ls, size_t start_idx, size_t end_idx);                \
 
 #define LIST_DEFINE(type)                                                                   \
 list_##type* list_##type##_resize(list_##type* ls, size_t new_sz) {                         \
-    ls->data = (type*) realloc((void*) ls->data, sizeof(type) * new_sz);                          \
+    ls->data = (type*) realloc((void*) ls->data, sizeof(type) * new_sz);                    \
     if (!ls) {                                                                              \
         fprintf(stderr, "Failed realloc in list_##type##_resize.\n");                       \
         exit(-1);                                                                           \
     }                                                                                       \
     else {                                                                                  \
+        if (new_sz > ls->max_sz)                                                            \
+            clear_##type##_bits(ls, ls->max_sz, new_sz);                                    \
         ls->max_sz = new_sz;                                                                \
         return ls;                                                                          \
     }                                                                                       \
@@ -48,21 +55,22 @@ list_##type* list_##type##_init(size_t sz) {                                    
         exit(-1);                                                                           \
     }                                                                                       \
     if (sz < DEFAULT_LIST_SIZE) {                                                           \
-        ls->data = (type*) calloc(DEFAULT_LIST_SIZE, sizeof(type));                         \
+        ls->data = (type*) malloc(DEFAULT_LIST_SIZE * sizeof(type));                        \
         ls->sz = 0;                                                                         \
         ls->max_sz = DEFAULT_LIST_SIZE;                                                     \
     } else {                                                                                \
-        ls->data = (type*) calloc(sz, sizeof(type));                                        \
+        ls->data = (type*) malloc(sz * sizeof(type));                                       \
         ls->sz = 0;                                                                         \
         ls->max_sz = sz;                                                                    \
     }                                                                                       \
     if (!ls->data) {                                                                        \
         fprintf(stderr, "Failed malloc for ls->data in list_##type##_init.\n");             \
     }                                                                                       \
+    clear_##type##_bits(ls, 0, ls->max_sz);                                                 \
     return ls;                                                                              \
 }                                                                                           \
 type* get_##type(list_##type* ls, long idx) {                                               \
-    if (idx >= (long) ls->max_sz) {                                                         \
+    if (idx >= (long) ls->sz) {                                                             \
         fprintf(stderr, "Attempted access to unallocated memory in get_##type.\n");         \
         exit(-1);                                                                           \
     } else if (idx < 0) {                                                                   \
@@ -94,16 +102,40 @@ void set_##type(list_##type* ls, long idx, type val) {                          
         ls->data[idx] = val;                                                                \
     }                                                                                       \
                                                                                             \
-    if (idx >= (long) ls->sz) {                                                             \
+    if ((size_t) idx >= ls->sz) {                                                           \
         ls->sz = (size_t) idx + 1;                                                          \
-        printf("\tls->sz = %u\n", ls->sz);                                                  \
-        list_##type##_resize(ls, ls->max_sz * DEFAULT_LIST_GROWTH_FACTOR);                  \
+        if (ls->sz >= ls->max_sz) {                                                         \
+            list_##type##_resize(ls, ls->max_sz * DEFAULT_LIST_GROWTH_FACTOR);              \
+        }                                                                                   \
     }                                                                                       \
+}                                                                                           \
+type pop_##type(list_##type* ls, size_t idx) {                                              \
+    type return_val = ls->data[idx];                                                        \
+    for (size_t i = idx; i < ls->sz; ++i) {                                                 \
+        ls->data[i] = ls->data[i+1];                                                        \
+    }                                                                                       \
+    ls->sz--;                                                                               \
+    return return_val;                                                                      \
 }                                                                                           \
 void list_##type##_free(list_##type* ls) {                                                  \
     free(ls->data);                                                                         \
     free(ls);                                                                               \
 }                                                                                           \
+type* get_##type##_slice(list_##type* ls, size_t start_idx, size_t end_idx) {               \
+    type* result = (type*) calloc(end_idx - start_idx, sizeof(type));                       \
+    for (size_t i = start_idx; i < end_idx; ++i)                                            \
+        result[i - start_idx] = ls->data[i];                                                \
+    return result;                                                                          \
+}                                                                                           \
+void clear_##type##_bits(list_##type* ls, size_t start_idx, size_t end_idx) {               \
+    for (size_t i = start_idx; i < end_idx; ++i)                                            \
+        ls->data[i] = (ls->data[i] & 0);                                                    \
+}                                                                                           \
+
+
+/*size_t validate_idx(list_##type* ls, size_t idx) {
+
+}*/
 
 #define LIST_TYPE(type)                                                                     \
     list_##type                                                                             \

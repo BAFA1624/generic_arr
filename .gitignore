@@ -1,4 +1,6 @@
-.vscode/launch.json .vscode/tasks.json
+.vscode/launch.json 
+.vscode/tasks.json
 generic_arr.exe
+generic_arr
 *.out
 *.o

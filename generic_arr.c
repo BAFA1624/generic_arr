@@ -6,19 +6,22 @@ LIST_DEFINE(int)
 LIST_DECLARE(char)
 LIST_DEFINE(char)
 
-int main() {
-    LIST_TYPE(int)* test = list_int_init(20);
-    
+int main()
+{
+    LIST_TYPE(int) *test = list_int_init(20);
+
     list_int_free(test);
 
-    LIST_TYPE(char)* test2 = list_char_init(0);
+    LIST_TYPE(char) *test2 = list_char_init(0);
 
-    const char* words = "My name is Ben";
-    for (size_t i = 0; i < strlen(words); i++) {
+    const char *words = "My name is Ben";
+    for (size_t i = 0; i < strlen(words); i++)
+    {
         list_char_pushback(test2, words[i]);
     }
 
-    for (size_t i = 0; i < test2->sz; ++i) {
+    for (size_t i = 0; i < test2->sz; ++i)
+    {
         printf("%c", *get_char(test2, i));
     }
     printf("|\n");
@@ -26,13 +29,13 @@ int main() {
     printf("test2[%d] = %c\n", 5, pop_char(test2, 5));
 
     for (size_t i = 0; i < test2->sz; i++)
-        printf("%c", *get_char(test2, i)); 
-   
+        printf("%c", *get_char(test2, i));
+
     printf("|\n");
 
-    char* slice = get_char_slice(test2, 4, test2->sz - 2);
+    list_char *slice = get_char_slice(test2, 4, test2->sz - 2);
 
-    printf("%s|\n", slice);
+    printf("%s|\n", slice->data);
 
     free(slice);
     list_char_free(test2);

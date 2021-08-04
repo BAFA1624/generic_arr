@@ -1,9 +1,8 @@
-
-
 #ifndef GENERIC_ARR_H_
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define GENERIC_ARR_H
 
@@ -16,6 +15,11 @@
 		size_t sz;                                                                              \
 		size_t max_sz;                                                                          \
 	} list_##type;                                                                              \
+	typedef struct lview_##type##_s {\
+		type* data_ptrs;\
+		size_t sz;\
+		size_t max_sz;\
+	} lview_##type;\
 	list_##type* list_##type##_resize(list_##type* ls, size_t new_sz);                          \
 	list_##type* list_##type##_pushback(list_##type* ls, type data);                            \
 	list_##type* list_##type##_init(size_t sz);                                                 \
@@ -24,9 +28,11 @@
 	type pop_##type(list_##type* ls, size_t idx);                                               \
 	void list_##type##_free(list_##type* ls);                                                   \
 	list_##type* get_##type##_slice(list_##type* ls, size_t start_idx, size_t end_idx);                \
-	size_t validate_##type##_idx(list_##type* ls, size_t idx);                                  \
+	bool validate_##type##_idx(list_##type* ls, long idx, bool _writemode);                                  \
 	void clear_##type##_bits(list_##type* ls, size_t start_idx, size_t end_idx);                \
 	long binary_##type##_search(list_##type* ls, type search_val, int (*compare_func)(const void* a, const void* b)); \
+	lview_##type##_s* create_##type##_lview(list_##type* ls, size_t start_idx, size_t end_idx);\
+	void free_##type##_lview(lview_##type* ls);\
 
 #define LIST_DEFINE(type)                                                                   \
 	list_##type* list_##type##_resize(list_##type* ls, size_t new_sz) {                         \
@@ -132,32 +138,56 @@
 		ls->data[i] = (ls->data[i] & 0);                                                    \
 	}                                                                                           \
 	long binary_##type##_search(list_##type* ls, type search_val, int (*compare_func)(const void* a, const void* b)) {\
-		long idx, compare_result, left_ptr = 0, right_ptr = ls->sz;\
+		long idx, compare_result, left_ptr = 0, right_ptr = ls->sz - 1;\
 		while (left_ptr != right_ptr) {\
 			idx = (left_ptr + right_ptr) / 2;\
-			printf("\tidx = %ld, left_ptr = %ld, right_ptr = %ld\n", idx, left_ptr, right_ptr);\
 			compare_result = (size_t) compare_func((const void*) &search_val, (const void*) &ls->data[idx]);\
-			printf("\tcomparing: search_val = %ld, ls->data[%ld] = %ld, compare_result = %ld\n\n", search_val, idx, ls->data[idx], compare_result);\
 			if (compare_result == 0) {\
-				printf("\tResult: idx = %ld, left_ptr = %ld, right_ptr = %ld\n", idx, left_ptr, right_ptr);\
 				return idx;\
 			} else if (compare_result > 0) {\
-				left_ptr = idx;\
+				left_ptr = idx + 1;\
 			} else if (compare_result < 0) {\
-				right_ptr = idx;\
+				right_ptr = idx - 1;\
 			}\
 			if (left_ptr > right_ptr) {\
-				fprintf(stderr, "binary search went wrong, left_ptr > right_ptr.\n");\
-				exit(-1);\
+				break;\
 			}\
 		}\
 		return -1;\
 	}\
-
-
-/*size_t validate_idx(list_##type* ls, size_t idx) {
-
-  }*/
+	bool validate_##type##_idx(list_##type_s* ls, long idx, bool _writemode) {\
+		if (idx < 0) \
+		idx *= -1;\
+		if (_writemode && idx > 0) {\
+			fprintf(stderr, "Attempted write to read only memory.\n");\
+			exit(-1);\
+		} else if (!_writemode && idx > 0) {\
+			fprintf(stderr, "Potential read from out of bounds memory.\n");\
+		}\
+		return true;\
+	}\
+	lview_##type* create_##type##_lview(list_##type* ls, size_t start_idx, size_t end_idx) {\
+		lview_##type* result = (lview_##type*) malloc(sizeof(lview_##type));\
+		if (!result) {\
+			fprintf(stderr, "Failed to allocate memory for lview_##type##_s.\n");\
+			exit(-1);\
+		}\
+		\
+		if (validate_##type##_idx(ls, start_idx) && validate_##type##_idx(ls, end_idx)) {\
+			if (end_idx < ls->sz) {\
+				result->data_ptrs = &ls->data[start_idx];\
+			} else {\
+				fprintf(stderr, "Tried to form lview with access to read-only memory.\n");\
+				exit(-1);\
+			}\
+			result->sz = end_idx - start_idx;\
+			result->max_sz = result->sz;\
+		}\
+		return result;\
+	}\
+	void free_##type##_lview(lview_##type* lview) {\
+		free(lview);\
+	}\
 
 #define LIST_TYPE(type)                                                                     \
 	list_##type                                                                             \
